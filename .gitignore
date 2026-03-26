@@ -1,0 +1,19 @@
+.DS_Store
+
+# Swift build output
+.build/
+.swiftpm/
+
+# Bundled app artifacts
+dist/
+
+# Xcode and macOS user files
+DerivedData/
+*.xcuserstate
+*.xcworkspace
+xcuserdata/
+
+# Editor and temp files
+*.swp
+*.tmp
+*~
