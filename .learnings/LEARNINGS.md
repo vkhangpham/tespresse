@@ -69,7 +69,8 @@ Use when extracting a reusable skill:
 
 **Logged**: 2026-03-26T11:28:00Z
 **Priority**: medium
-**Status**: resolved
+**Status**: promoted
+**Promoted**: AGENTS.md
 **Area**: general
 
 ### Summary
