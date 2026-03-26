@@ -6,7 +6,7 @@
 
 - Keep the app local-only and simple to run on one machine.
 - Prefer open-source speech tooling for TTS and STT.
-- Make prompt import behavior easy to inspect in the UI before trusting parser changes.
+- Make sentence-pool behavior easy to inspect in the UI before trusting pool changes.
 - Preserve the menu bar flow: configure, wait, trigger, answer, dismiss.
 
 ## Local setup
@@ -35,7 +35,7 @@ The voice server defaults to the persistent tmux session named `servers` and cre
 ## Project layout
 
 - `Sources/TesPresse/`
-  Swift source for the menu bar app, challenge UI, prompt import, and voice client.
+  Swift source for the menu bar app, challenge UI, sentence-pool loading, and voice client.
 - `App/Info.plist`
   App bundle metadata and permissions.
 - `scripts/`
@@ -47,7 +47,7 @@ The voice server defaults to the persistent tmux session named `servers` and cre
 
 - Keep changes ASCII unless a file already relies on Unicode.
 - Prefer small, focused UI changes that preserve the existing local-first workflow.
-- Treat imported prompt parsing carefully. If you change import rules, verify the result in the in-app prompt preview.
+- Treat the sentence-pool format carefully. If you change loading rules, verify the result in the in-app pool preview.
 - Keep defaults aligned with the local MLX-Audio stack unless there is a strong reason to change them.
 - Avoid committing build artifacts such as `.build/` or `dist/`.
 
@@ -64,6 +64,7 @@ Run the checks that match your change:
 
 ```bash
 swift build
+swift test
 ./scripts/build_app.sh
 curl -s http://127.0.0.1:8000/v1/models
 ```

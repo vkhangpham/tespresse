@@ -44,12 +44,21 @@ enum VoiceServiceError: LocalizedError {
 }
 
 enum VoiceServiceClient {
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 180
+        configuration.timeoutIntervalForResource = 600
+        return URLSession(configuration: configuration)
+    }()
+
     static func fetchLoadedModels(configuration: VoiceServiceConfiguration) async throws -> [String] {
         let baseURL = try normalizedBaseURL(from: configuration)
         var request = URLRequest(url: baseURL.appending(path: "v1/models"))
         request.httpMethod = "GET"
+        request.timeoutInterval = 8
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try validate(data: data, response: response)
 
         let payload = try JSONDecoder().decode(ModelListResponse.self, from: data)
@@ -61,6 +70,7 @@ enum VoiceServiceClient {
         var request = URLRequest(url: baseURL.appending(path: "v1/audio/speech"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 180
 
         let payload = SpeechRequestPayload(
             model: configuration.ttsModel,
@@ -72,7 +82,7 @@ enum VoiceServiceClient {
         )
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try validate(data: data, response: response)
         return data
     }
@@ -81,12 +91,13 @@ enum VoiceServiceClient {
         let baseURL = try normalizedBaseURL(from: configuration)
         var request = URLRequest(url: baseURL.appending(path: "v1/audio/transcriptions"))
         request.httpMethod = "POST"
+        request.timeoutInterval = 300
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = try createTranscriptionBody(fileURL: fileURL, configuration: configuration, boundary: boundary)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try validate(data: data, response: response)
 
         let transcript = data

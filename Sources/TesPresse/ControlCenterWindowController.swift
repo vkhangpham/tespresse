@@ -65,7 +65,7 @@ struct ControlCenterView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("T'es pressé ?")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("Random French listening drills from your own books.")
+                Text("Random French listening drills from one local sentence-pool file.")
                     .font(.headline)
                     .foregroundStyle(.secondary)
             }
@@ -181,20 +181,20 @@ struct ControlCenterView: View {
     }
 
     private var sourceCard: some View {
-        card("Sentence Sources", systemImage: "doc.text.magnifyingglass") {
+        card("Sentence Pool", systemImage: "doc.text.magnifyingglass") {
             VStack(alignment: .leading, spacing: 12) {
                 if alarmManager.isImportingSentenceSources {
-                    ProgressView("Scanning French source files...")
+                    ProgressView("Loading sentence pool...")
                 } else {
                     Text(alarmManager.importStatusMessage)
                         .foregroundStyle(.secondary)
                 }
 
-                Text("Configured paths")
+                Text("Current file")
                     .font(.headline)
 
                 if alarmManager.selectedSourcePaths.isEmpty {
-                    Text("No custom paths selected. The app will fall back to its built-in prompt list.")
+                    Text("No pool file is configured. Restore the bundled 198-prompt file to keep the app ready.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(alarmManager.selectedSourcePaths, id: \.self) { path in
@@ -204,9 +204,13 @@ struct ControlCenterView: View {
                     }
                 }
 
+                Text("Use plain text with one French prompt per line. Choosing a different file keeps the same format and reuses the same preview flow.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 if !alarmManager.sourceSummaries.isEmpty {
                     Divider()
-                    Text("Imported sources")
+                    Text("Loaded file")
                         .font(.headline)
 
                     ForEach(alarmManager.sourceSummaries) { summary in
@@ -220,15 +224,15 @@ struct ControlCenterView: View {
                 }
 
                 HStack {
-                    Button("Scan Current Sources") {
+                    Button("Reload Pool") {
                         alarmManager.refreshSentenceSources()
                     }
 
-                    Button("Choose Files or Folder…") {
+                    Button("Choose Pool File…") {
                         alarmManager.chooseSentenceSources()
                     }
 
-                    Button("Restore Defaults") {
+                    Button("Restore Bundled Pool") {
                         alarmManager.restoreDefaultSources()
                     }
                 }
@@ -237,21 +241,21 @@ struct ControlCenterView: View {
     }
 
     private var previewCard: some View {
-        card("Imported Prompt Preview", systemImage: "list.bullet.rectangle.portrait") {
+        card("Sentence Pool Preview", systemImage: "list.bullet.rectangle.portrait") {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Filter by prompt text or source name", text: $previewQuery)
+                TextField("Filter by prompt text or file name", text: $previewQuery)
                     .textFieldStyle(.roundedBorder)
 
                 HStack {
                     Text("\(filteredImportedSentences.count) visible")
                     Spacer()
-                    Text("\(alarmManager.importedSentences.count) imported total")
+                    Text("\(alarmManager.importedSentences.count) loaded total")
                         .foregroundStyle(.secondary)
                 }
                 .font(.footnote)
 
                 if alarmManager.importedSentences.isEmpty {
-                    Text("No imported prompts yet. Scan your source files first, or the app will keep using the fallback prompts.")
+                    Text("No sentence-pool prompts are loaded yet. Reload the bundled file or choose another plain-text pool.")
                         .foregroundStyle(.secondary)
                 } else {
                     VStack(spacing: 0) {
@@ -323,7 +327,7 @@ struct ControlCenterView: View {
                 .font(.caption.weight(.semibold))
                 .frame(width: 220, alignment: .leading)
 
-            Text("French Prompt")
+            Text("Prompt")
                 .font(.caption.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

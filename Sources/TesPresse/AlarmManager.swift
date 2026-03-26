@@ -20,13 +20,28 @@ final class AlarmManager: NSObject, ObservableObject {
     @Published var importedSentences: [FrenchSentence] = []
     @Published var sourceSummaries: [SentenceSourceSummary] = []
     @Published var isImportingSentenceSources = false
-    @Published var importStatusMessage = "Looking for your French source books..."
+    @Published var importStatusMessage = "Loading the local sentence pool..."
     @Published var loadedVoiceModels: [String] = []
     @Published var voiceServerStatusMessage = "Waiting for the MLX-Audio voice server..."
     @Published var isRefreshingVoiceServerStatus = false
 
     @Published var selectedSourcePaths: [String] {
         didSet {
+            let normalizedPaths = Array(
+                Set(
+                    selectedSourcePaths
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                )
+            )
+            .sorted()
+            .prefix(1)
+
+            if Array(normalizedPaths) != selectedSourcePaths {
+                selectedSourcePaths = Array(normalizedPaths)
+                return
+            }
+
             defaults.set(selectedSourcePaths, forKey: Keys.selectedSourcePaths)
         }
     }
@@ -179,7 +194,7 @@ final class AlarmManager: NSObject, ObservableObject {
         let legacyStudyFrenchPath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Study/French").path
         let storedSourcePaths = defaults.stringArray(forKey: Keys.selectedSourcePaths) ?? []
-        let cleanedSourcePaths = storedSourcePaths.filter { $0 != legacyStudyFrenchPath }
+        let cleanedSourcePaths = Array(storedSourcePaths.filter { $0 != legacyStudyFrenchPath }.prefix(1))
 
         minimumIntervalMinutes = storedMinimum
         maximumIntervalMinutes = max(storedMinimum, storedMaximum)
@@ -296,7 +311,7 @@ final class AlarmManager: NSObject, ObservableObject {
     func submitTypedResponse() {
         guard responseMode != .speechOnly else { return }
         guard let sentence = currentChallenge?.sentence else { return }
-        if SentenceMatcher.matches(input: typedResponse, target: sentence.text) {
+        if SentenceMatcher.matches(input: typedResponse, target: sentence.text, mode: .typing) {
             dismissCurrentAlarm()
         }
     }
@@ -369,7 +384,7 @@ final class AlarmManager: NSObject, ObservableObject {
         if importedSentences.isEmpty {
             return "Using the built-in fallback prompts"
         }
-        return "Using \(importedSentences.count) imported French prompts"
+        return "Using \(importedSentences.count) prompts from the loaded sentence pool"
     }
 
     func countdownSummary(now: Date = Date()) -> String {
@@ -391,7 +406,7 @@ final class AlarmManager: NSObject, ObservableObject {
         let sourcePaths = selectedSourcePaths.isEmpty ? SentenceImportService.defaultSourcePaths() : selectedSourcePaths
         selectedSourcePaths = sourcePaths
         isImportingSentenceSources = true
-        importStatusMessage = "Scanning your French books for prompts..."
+        importStatusMessage = "Loading your sentence pool..."
 
         Task {
             let result = await Task.detached(priority: .userInitiated) {
@@ -401,6 +416,10 @@ final class AlarmManager: NSObject, ObservableObject {
             await MainActor.run {
                 self.importedSentences = result.sentences
                 self.sourceSummaries = result.sources
+                if let loadedPath = result.sources.first?.path,
+                   self.selectedSourcePaths.first != loadedPath {
+                    self.selectedSourcePaths = [loadedPath]
+                }
                 self.importStatusMessage = result.statusMessage
                 self.isImportingSentenceSources = false
                 print("[T'es pressé ?] \(result.statusMessage)")
@@ -455,19 +474,18 @@ final class AlarmManager: NSObject, ObservableObject {
 
     func chooseSentenceSources() {
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.allowedContentTypes = [
-            .pdf,
             .plainText,
-            .text,
-            UTType(filenameExtension: "docx") ?? .data
+            .text
         ]
+        panel.message = "Choose a plain-text sentence pool file. Keep one prompt per line."
 
         if panel.runModal() == .OK {
-            let chosenPaths = panel.urls.map(\.path)
-            selectedSourcePaths = Array(Set(selectedSourcePaths + chosenPaths)).sorted()
+            guard let selectedURL = panel.url else { return }
+            selectedSourcePaths = [selectedURL.path]
             refreshSentenceSources()
         }
     }
@@ -546,7 +564,7 @@ final class AlarmManager: NSObject, ObservableObject {
 
     private func evaluateSpokenAnswer(_ transcript: String) {
         guard let sentence = currentChallenge?.sentence else { return }
-        if SentenceMatcher.matches(input: transcript, target: sentence.text, tolerateMinorSpeechRecognitionErrors: true) {
+        if SentenceMatcher.matches(input: transcript, target: sentence.text, mode: .speech) {
             dismissCurrentAlarm()
         }
     }

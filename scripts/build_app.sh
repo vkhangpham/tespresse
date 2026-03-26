@@ -17,6 +17,10 @@ cp "$ROOT_DIR/App/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$BIN_DIR/TesPresse" "$APP_DIR/Contents/MacOS/TesPresse"
 chmod +x "$APP_DIR/Contents/MacOS/TesPresse"
 
+while IFS= read -r -d '' bundle_path; do
+  cp -R "$bundle_path" "$APP_DIR/Contents/Resources/"
+done < <(find "$BIN_DIR" -maxdepth 1 -type d -name 'TesPresse*.bundle' -print0)
+
 if command -v codesign >/dev/null 2>&1; then
   echo "Applying ad-hoc code signature..."
   codesign --force --deep --sign - "$APP_DIR" >/dev/null

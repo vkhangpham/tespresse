@@ -5,10 +5,10 @@
 ## Highlights
 
 - Menu bar app with a persistent status icon.
-- Control center on launch for timing, response mode, voice settings, and prompt sources.
+- Control center on launch for timing, response mode, voice settings, and a local sentence-pool file.
 - Random alarm timing with a configurable minimum gap.
-- Prompt import from local PDF, DOCX, TXT, and Markdown files.
-- Searchable in-app preview of imported prompts before they enter the active pool.
+- Bundled 198-prompt French sentence pool in plain text, with support for swapping in another file that keeps the same one-prompt-per-line format.
+- Searchable in-app preview of the loaded sentence pool before prompts enter the active rotation.
 - Open-source local voice stack:
   - Kokoro TTS through MLX-Audio
   - Whisper STT through MLX-Audio
@@ -72,20 +72,24 @@ The first request is heavier because models are downloaded lazily and cached loc
 
 After that, speech requests are much faster.
 
-## Prompt sources
+## Sentence pool
 
-The app can import prompts from your own study material. Right now the defaults target local French study files on this machine:
+The app now loads one local plain-text sentence-pool file. The bundled default contains 198 French prompts and is included in the app bundle.
 
-- `~/Study/books/198 French Phrases and expressions.pdf`
-- `~/Study/Francais/tcf/Expressions et Vocabulaire 1.docx`
+If you want to swap it out, keep the same format:
 
-Imported prompts are shown in the control center preview so you can inspect parsing quality before relying on them for alarms.
+- plain text
+- one prompt per line
+- no extra parsing markers or section headers in the active pool
+
+The control center preview still lets you inspect the live pool before trusting it for alarms.
 
 ## Current defaults
 
 - Random interval: 5 to 20 minutes
 - Repeat speech every 12 seconds
 - Response mode: typing or speech
+- Sentence pool: bundled 198-prompt plain-text file
 - Voice server URL: `http://127.0.0.1:8000`
 - TTS model: `mlx-community/Kokoro-82M-bf16`
 - TTS voice: `ff_siwis`
@@ -96,6 +100,7 @@ Imported prompts are shown in the control center preview so you can inspect pars
 
 ```bash
 swift build
+swift test
 swift run
 ./scripts/start_mlx_audio_server_tmux.sh
 ./scripts/stop_mlx_audio_server_tmux.sh
@@ -105,7 +110,9 @@ swift run
 ## Project structure
 
 - `Sources/TesPresse/`
-  App logic, views, import pipeline, alarm scheduling, and voice client.
+  App logic, views, sentence-pool loading, alarm scheduling, and voice client.
+- `Tests/TesPresseTests/`
+  Unit tests for sentence-pool loading and phrase matching.
 - `App/`
   Bundle metadata and permissions.
 - `scripts/`
