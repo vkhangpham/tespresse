@@ -95,6 +95,7 @@ final class AlarmManager: NSObject, ObservableObject {
                 return
             }
             defaults.set(normalizedValue, forKey: Keys.minimumIntervalMinutes)
+            refreshSchedulerForTimingChange()
         }
     }
 
@@ -106,6 +107,7 @@ final class AlarmManager: NSObject, ObservableObject {
                 return
             }
             defaults.set(normalizedValue, forKey: Keys.maximumIntervalMinutes)
+            refreshSchedulerForTimingChange()
         }
     }
 
@@ -117,6 +119,7 @@ final class AlarmManager: NSObject, ObservableObject {
                 return
             }
             defaults.set(normalizedValue, forKey: Keys.repeatSpeechEverySeconds)
+            restartRepeatSpeechIfNeeded()
         }
     }
 
@@ -244,11 +247,20 @@ final class AlarmManager: NSObject, ObservableObject {
 
     func start() {
         schedulerTask?.cancel()
+        rescheduleNextTriggerDate()
         schedulerTask = Task { [weak self] in
             guard let self else { return }
 
             while !Task.isCancelled {
                 self.clearExpiredSuppressions()
+
+                if currentChallenge != nil {
+                    if nextTriggerDate.map({ $0 <= Date() }) ?? true {
+                        rescheduleNextTriggerDate()
+                    }
+                    try? await Task.sleep(for: .seconds(1))
+                    continue
+                }
 
                 if let pauseUntil, pauseUntil > Date() {
                     nextTriggerDate = pauseUntil
@@ -256,9 +268,11 @@ final class AlarmManager: NSObject, ObservableObject {
                     continue
                 }
 
-                let fireDate = overrideNextTriggerDate ?? Date().addingTimeInterval(randomDelay())
-                overrideNextTriggerDate = nil
-                nextTriggerDate = fireDate
+                guard let fireDate = nextTriggerDate else {
+                    rescheduleNextTriggerDate()
+                    try? await Task.sleep(for: .seconds(1))
+                    continue
+                }
 
                 while !Task.isCancelled && Date() < fireDate {
                     self.clearExpiredSuppressions()
@@ -330,12 +344,14 @@ final class AlarmManager: NSObject, ObservableObject {
     func snooze(minutes: Double) {
         overrideNextTriggerDate = Date().addingTimeInterval(minutes * 60)
         dismissCurrentAlarm(scheduleNext: false)
+        refreshSchedulerForTimingChange()
     }
 
     func pause(minutes: Double) {
         pauseUntil = Date().addingTimeInterval(minutes * 60)
         defaults.set(pauseUntil, forKey: Keys.pauseUntil)
         dismissCurrentAlarm(scheduleNext: false)
+        refreshSchedulerForTimingChange()
     }
 
     func mute(minutes: Double) {
@@ -352,6 +368,7 @@ final class AlarmManager: NSObject, ObservableObject {
     func clearPause() {
         pauseUntil = nil
         defaults.removeObject(forKey: Keys.pauseUntil)
+        refreshSchedulerForTimingChange()
     }
 
     func dismissCurrentAlarm(scheduleNext: Bool = true) {
@@ -494,6 +511,28 @@ final class AlarmManager: NSObject, ObservableObject {
         let minimum = minimumIntervalMinutes * 60
         let maximum = maximumIntervalMinutes * 60
         return Double.random(in: minimum...maximum)
+    }
+
+    private func rescheduleNextTriggerDate(from now: Date = Date()) {
+        clearExpiredSuppressions()
+
+        if let pauseUntil, pauseUntil > now {
+            nextTriggerDate = pauseUntil
+            return
+        }
+
+        nextTriggerDate = overrideNextTriggerDate ?? now.addingTimeInterval(randomDelay())
+        overrideNextTriggerDate = nil
+    }
+
+    private func refreshSchedulerForTimingChange() {
+        guard schedulerTask != nil else { return }
+        start()
+    }
+
+    private func restartRepeatSpeechIfNeeded() {
+        guard currentChallenge != nil else { return }
+        beginRepeatingSpeech()
     }
 
     private func beginRepeatingSpeech() {
